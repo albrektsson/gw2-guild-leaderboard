@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Guild Leaderboard</title>
+  <title>Leaderboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
@@ -58,13 +58,13 @@
     }
 
     .emblem {
-      width: 72px;
-      height: 72px;
+      width: 120px;
+      height: 120px;
       margin: 0 auto 1.2rem;
       opacity: 0.9;
     }
 
-    .title {
+    .subtitle {
       font-family: 'Cinzel', serif;
       font-size: clamp(1.8rem, 5vw, 3rem);
       font-weight: 900;
@@ -75,14 +75,16 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
       line-height: 1.1;
+      margin-top: 0;
     }
 
-    .subtitle {
-      font-size: 1rem;
-      color: var(--muted);
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
+    .tagline {
+      font-family: 'Crimson Pro', Georgia, serif;
+      font-size: 0.95rem;
       font-weight: 300;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--muted);
       margin-top: 0.5rem;
     }
 
@@ -494,24 +496,23 @@
 <div class="container">
 
   <header>
-    <!-- Simple GW2-style crossed-swords SVG emblem -->
-    <svg class="emblem" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Guild emblem: local cached SVG, falls back to inline SVG -->
+    <img id="emblem-img" class="emblem" src="data/guild_emblem.svg" alt="Guild emblem"
+         onerror="this.style.display='none'; document.getElementById('emblem-svg').style.display='block'" />
+    <svg id="emblem-svg" class="emblem" style="display:none" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="36" cy="36" r="34" stroke="#c9a84c" stroke-width="1.5" opacity="0.4"/>
       <circle cx="36" cy="36" r="28" stroke="#c9a84c" stroke-width="0.5" opacity="0.3"/>
-      <!-- Sword 1 -->
       <line x1="18" y1="18" x2="54" y2="54" stroke="#c9a84c" stroke-width="2" stroke-linecap="round"/>
       <polygon points="18,18 13,22 22,22" fill="#c9a84c" opacity="0.8"/>
       <line x1="22" y1="36" x2="30" y2="28" stroke="#c9a84c" stroke-width="1.5"/>
-      <!-- Sword 2 -->
       <line x1="54" y1="18" x2="18" y2="54" stroke="#c9a84c" stroke-width="2" stroke-linecap="round"/>
       <polygon points="54,18 58,22 50,22" fill="#c9a84c" opacity="0.8"/>
       <line x1="50" y1="36" x2="42" y2="28" stroke="#c9a84c" stroke-width="1.5"/>
-      <!-- Center gem -->
       <circle cx="36" cy="36" r="4" fill="#8b1a1a" stroke="#c9a84c" stroke-width="1"/>
     </svg>
 
-    <h1 class="title">Guild Leaderboard</h1>
-    <p class="subtitle">Contribution Rankings</p>
+    <p class="subtitle" id="guild-name">Leaderboard</p>
+    <p class="tagline">Contribution Rankings</p>
     <div class="divider"><span class="divider-icon">✦</span></div>
   </header>
 
@@ -718,6 +719,19 @@
   }
 
   // ── Data load ──
+  // Load guild info (name, tag, emblem) independently — non-critical
+  fetch("data/guild_info.json")
+    .then(r => r.ok ? r.json() : null)
+    .then(info => {
+      if (!info) return;
+      if (info.name) {
+        const tag = info.tag ? ` [${info.tag}]` : "";
+        document.getElementById("guild-name").textContent = info.name + tag;
+        document.title = info.name + " Leaderboard";
+      }
+    })
+    .catch(() => {});  // silently keep fallback SVG
+
   async function load() {
     let data;
     try {

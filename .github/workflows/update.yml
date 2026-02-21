@@ -40,7 +40,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/guild_log.json data/leaderboard.json data/item_names.json data/item_prices.json data/guild_members.json
+          git add data/guild_log.json data/leaderboard.json data/item_names.json data/item_prices.json data/guild_members.json data/guild_info.json data/guild_emblem.svg
           git diff --cached --quiet || git commit -m "chore: update leaderboard $(date -u '+%Y-%m-%d')"
           git push
 
