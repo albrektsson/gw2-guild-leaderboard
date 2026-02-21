@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guild Leaderboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --gold:    #c9a84c;
+      --gold-lt: #e8d08a;
+      --red:     #8b1a1a;
+      --dark:    #0d0b09;
+      --panel:   #14110e;
+      --border:  #2e2820;
+      --text:    #d4c9b8;
+      --muted:   #6b6055;
+    }
+
+    html { font-size: 120%; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--dark);
+      color: var(--text);
+      font-family: 'Crimson Pro', Georgia, serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background texture ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,26,26,0.18) 0%, transparent 70%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Crect width='60' height='60' fill='none'/%3E%3Cpath d='M0 30h60M30 0v60' stroke='%232e2820' stroke-width='0.5' opacity='0.4'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .emblem {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 1.2rem;
+      opacity: 0.9;
+    }
+
+    .title {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: linear-gradient(160deg, var(--gold-lt) 0%, var(--gold) 50%, #8a6a28 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      font-size: 1rem;
+      color: var(--muted);
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-weight: 300;
+      margin-top: 0.5rem;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 1.5rem auto 0;
+      max-width: 320px;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold));
+    }
+
+    .divider::after { background: linear-gradient(to left, transparent, var(--gold)); }
+
+    .divider-icon { color: var(--gold); font-size: 0.75rem; }
+
+    /* ── Meta bar ── */
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.7rem 1.2rem;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      background: rgba(20,17,14,0.8);
+      margin-bottom: 1.5rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    .meta strong { color: var(--gold); font-weight: 400; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0;
+    }
+
+    .tab-btn {
+      font-family: 'Cinzel', serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 0.8rem 1.6rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover { color: var(--text); }
+
+    .tab-btn.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+    }
+
+    /* ── Leaderboard table ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .board { display: flex; flex-direction: column; }
+
+    /* Monetary: Rank | Member | Treasury | Stash In | Stash Out | Net Contributed */
+    .board-header.monetary,
+    .row.monetary {
+      display: grid;
+      grid-template-columns: 3rem 1fr repeat(4, 7rem);
+    }
+
+    /* Activity: Rank | Member | Upgrades | Missions | Invites | Accepted | Logins | Score */
+    .board-header.activity,
+    .row.activity {
+      display: grid;
+      grid-template-columns: 3rem 1fr repeat(5, 5rem) 5.5rem;
+    }
+
+    .board-header {
+      padding: 0.6rem 1.2rem;
+      font-family: 'Cinzel', serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .row {
+      align-items: center;
+      padding: 0.9rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+      transition: background 0.15s;
+      animation: fadeIn 0.4s ease both;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .row:hover { background: #1a1612; }
+
+    .row:nth-child(1) { border-left: 3px solid #c9a84c; }
+    .row:nth-child(2) { border-left: 3px solid #9aa3a8; }
+    .row:nth-child(3) { border-left: 3px solid #a0694b; }
+    .row:nth-child(n+4) { border-left: 3px solid transparent; }
+
+    .rank {
+      font-family: 'Cinzel', serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .rank-1 { color: var(--gold); }
+    .rank-2 { color: #9aa3a8; }
+    .rank-3 { color: #a0694b; }
+
+    .user { font-size: 1rem; font-weight: 400; color: var(--text); }
+    .user small { display: block; font-size: 0.75rem; color: var(--muted); margin-top: 0.1rem; }
+
+    .stat {
+      text-align: right;
+      font-size: 0.9rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .score {
+      text-align: right;
+      font-family: 'Cinzel', serif;
+      font-size: 1rem;
+      color: var(--gold);
+      font-weight: 600;
+    }
+
+    /* ── Scoring legend ── */
+    .legend {
+      margin-top: 2.5rem;
+      padding: 1.2rem 1.5rem;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .legend-title {
+      font-family: 'Cinzel', serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.5rem 2rem;
+    }
+
+    .legend-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .legend-item span { color: var(--gold); font-variant-numeric: tabular-nums; }
+
+    /* ── Member detail modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 4, 3, 0.85);
+      backdrop-filter: blur(3px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      max-height: 85vh;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transform: translateY(16px) scale(0.98);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      /* corner ornaments via box-shadow layers */
+      box-shadow:
+        0 0 0 1px var(--border),
+        0 24px 80px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(201,168,76,0.08);
+    }
+
+    .modal-overlay.open .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    /* Decorative top border */
+    .modal::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity: 0.6;
+    }
+
+    .modal-header {
+      padding: 1.6rem 1.6rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .modal-eyebrow {
+      font-family: 'Cinzel', serif;
+      font-size: 0.6rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .modal-name {
+      font-family: 'Cinzel', serif;
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--gold-lt);
+      letter-spacing: 0.05em;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 1.2rem;
+      right: 1.2rem;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 1rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      font-family: 'Cinzel', serif;
+      line-height: 1;
+    }
+
+    .modal-close:hover { color: var(--gold); border-color: var(--gold); }
+
+    .modal-body {
+      overflow-y: auto;
+      flex: 1;
+      padding: 0.5rem 0;
+    }
+
+    /* Scrollbar styling */
+    .modal-body::-webkit-scrollbar { width: 4px; }
+    .modal-body::-webkit-scrollbar-track { background: transparent; }
+    .modal-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+    /* Timeline */
+    .timeline {
+      padding: 1rem 1.6rem 1.6rem;
+      position: relative;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: calc(1.6rem + 11px);
+      top: 1rem;
+      bottom: 1.6rem;
+      width: 1px;
+      background: linear-gradient(to bottom, var(--border), transparent);
+    }
+
+    .tl-entry {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 0 1rem;
+      margin-bottom: 1.2rem;
+      animation: fadeIn 0.3s ease both;
+    }
+
+    .tl-entry:last-child { margin-bottom: 0; }
+
+    .tl-dot {
+      width: 23px;
+      height: 23px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .tl-dot.treasury  { border-color: var(--gold);    color: var(--gold); }
+    .tl-dot.stash-in  { border-color: #5a8a5a;        color: #5a8a5a; }
+    .tl-dot.stash-out { border-color: var(--red);     color: #c05050; }
+    .tl-dot.upgrade   { border-color: #9aa3a8;        color: #9aa3a8; }
+    .tl-dot.mission   { border-color: #8a6ab0;        color: #8a6ab0; }
+    .tl-dot.invited   { border-color: #7a9ab0;        color: #7a9ab0; }
+
+    .tl-content { min-width: 0; }
+
+    .tl-action {
+      font-size: 0.95rem;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .tl-action .item-id {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .tl-value {
+      font-style: normal;
+      color: var(--gold);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tl-time {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tl-count {
+      display: inline-block;
+      font-family: 'Cinzel', serif;
+      font-size: 0.75rem;
+      color: var(--gold);
+      margin-left: 0.3rem;
+    }
+
+    .modal-empty {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .row { cursor: pointer; }
+    .row:hover .user { color: var(--gold-lt); }
+
+    /* ── Empty / error state ── */
+    .empty {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--muted);
+      font-size: 1rem;
+      font-style: italic;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .board-header { display: none; }
+      .row.monetary,
+      .row.activity {
+        grid-template-columns: 2.5rem 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 0.2rem 0;
+      }
+      .stat { display: none; }
+      .score { grid-column: 3; grid-row: 1; }
+      .user { grid-column: 2; grid-row: 1 / 3; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <!-- Simple GW2-style crossed-swords SVG emblem -->
+    <svg class="emblem" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="36" cy="36" r="34" stroke="#c9a84c" stroke-width="1.5" opacity="0.4"/>
+      <circle cx="36" cy="36" r="28" stroke="#c9a84c" stroke-width="0.5" opacity="0.3"/>
+      <!-- Sword 1 -->
+      <line x1="18" y1="18" x2="54" y2="54" stroke="#c9a84c" stroke-width="2" stroke-linecap="round"/>
+      <polygon points="18,18 13,22 22,22" fill="#c9a84c" opacity="0.8"/>
+      <line x1="22" y1="36" x2="30" y2="28" stroke="#c9a84c" stroke-width="1.5"/>
+      <!-- Sword 2 -->
+      <line x1="54" y1="18" x2="18" y2="54" stroke="#c9a84c" stroke-width="2" stroke-linecap="round"/>
+      <polygon points="54,18 58,22 50,22" fill="#c9a84c" opacity="0.8"/>
+      <line x1="50" y1="36" x2="42" y2="28" stroke="#c9a84c" stroke-width="1.5"/>
+      <!-- Center gem -->
+      <circle cx="36" cy="36" r="4" fill="#8b1a1a" stroke="#c9a84c" stroke-width="1"/>
+    </svg>
+
+    <h1 class="title">Guild Leaderboard</h1>
+    <p class="subtitle">Contribution Rankings</p>
+    <div class="divider"><span class="divider-icon">✦</span></div>
+  </header>
+
+  <div class="meta">
+    <span>Last updated: <strong id="updated-at">—</strong></span>
+    <span id="meta-period">Total log entries: <strong id="total-entries">—</strong></span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="monetary">Monetary</button>
+    <button class="tab-btn" data-tab="activity">Activity</button>
+  </div>
+
+  <!-- Monetary tab -->
+  <div class="tab-panel active" id="tab-monetary">
+    <div class="board-header monetary">
+      <span>#</span>
+      <span>Member</span>
+      <span style="text-align:right">Treasury</span>
+      <span style="text-align:right">Stash In</span>
+      <span style="text-align:right">Stash Out</span>
+      <span style="text-align:right">Net</span>
+    </div>
+    <div class="board" id="board-monetary">
+      <div class="empty">Loading…</div>
+    </div>
+    <div class="legend">
+      <div class="legend-title">✦ Monetary Scoring</div>
+      <p style="font-size:0.85rem;color:var(--muted);line-height:1.6">
+        Score = total gold value of items deposited to the treasury and guild stash, minus
+        items withdrawn. Each item is priced at its current trading post sell listing
+        (or vendor value for untradeable items). Depositing 250 cheap mats is worth far
+        less than depositing one valuable item.
+      </p>
+    </div>
+  </div>
+
+  <!-- Activity tab -->
+  <div class="tab-panel" id="tab-activity">
+    <div class="board-header activity">
+      <span>#</span>
+      <span>Member</span>
+      <span style="text-align:right">Upgrades</span>
+      <span style="text-align:right">Missions</span>
+      <span style="text-align:right">Invites</span>
+      <span style="text-align:right">Accepted</span>
+      <span style="text-align:right">Logins</span>
+      <span style="text-align:right">Score</span>
+    </div>
+    <div class="board" id="board-activity">
+      <div class="empty">Loading…</div>
+    </div>
+    <div class="legend" id="activity-legend">
+      <div class="legend-title">✦ Activity Scoring</div>
+      <div class="legend-grid" id="activity-legend-grid"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Member detail modal -->
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-member-name">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-eyebrow">Guild Record</div>
+      <div class="modal-name" id="modal-member-name">—</div>
+    </div>
+    <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
+    <div class="modal-body">
+      <div class="timeline" id="modal-timeline"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Modal ──
+  let logCache    = null;
+  let namesCache  = null;
+  let pricesCache = null;
+
+  const overlay   = document.getElementById("modal-overlay");
+  const modalName = document.getElementById("modal-member-name");
+  const timeline  = document.getElementById("modal-timeline");
+
+  async function openModal(username) {
+    modalName.textContent = username;
+    timeline.innerHTML = `<div class="modal-empty">Loading…</div>`;
+    overlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+
+    if (!logCache || !namesCache || !pricesCache) {
+      try {
+        const [logRes, namesRes, pricesRes] = await Promise.all([
+          fetch("data/guild_log.json"),
+          fetch("data/item_names.json"),
+          fetch("data/item_prices.json"),
+        ]);
+        if (!logRes.ok)    throw new Error(`guild_log.json: ${logRes.statusText}`);
+        if (!namesRes.ok)  throw new Error(`item_names.json: ${namesRes.statusText}`);
+        if (!pricesRes.ok) throw new Error(`item_prices.json: ${pricesRes.statusText}`);
+        logCache    = await logRes.json();
+        namesCache  = await namesRes.json();
+        pricesCache = await pricesRes.json();
+      } catch (e) {
+        timeline.innerHTML = `<div class="modal-empty">Could not load log data.<br><small>${e.message}</small></div>`;
+        return;
+      }
+    }
+
+    const entries = (logCache.entries ?? [])
+      .filter(e =>
+        e.user === username ||
+        e.invited_by === username ||
+        (e.type === "influence" && (e.participants ?? []).includes(username))
+      )
+      .sort((a, b) => b.time.localeCompare(a.time));
+
+    if (!entries.length) {
+      timeline.innerHTML = `<div class="modal-empty">No log entries found for this member.</div>`;
+      return;
+    }
+
+    timeline.innerHTML = entries.map((e, i) => {
+      const { dotClass, label } = describeEntry(e, username);
+      const when = new Date(e.time).toLocaleString(undefined, {
+        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+      });
+      const countBadge = e.count ? `<span class="tl-count">×${e.count}</span>` : "";
+      const itemName   = e.item_id ? (namesCache[e.item_id] ?? `Item #${e.item_id}`) : null;
+      const unitPrice  = e.item_id ? (pricesCache[e.item_id] ?? 0) : 0;
+      const totalValue = ((e.count ?? 0) * unitPrice + (e.coins ?? 0)) / 10000;
+      const valueNote  = (itemName && totalValue > 0) ? ` <span class="tl-value">${totalValue.toFixed(2)}g</span>` : "";
+      const itemNote   = itemName ? `<span class="item-id"> — ${escHtml(itemName)}${valueNote}</span>` : "";
+      return `
+        <div class="tl-entry" style="animation-delay:${i * 25}ms">
+          <div class="tl-dot ${dotClass}">${dotIcon(dotClass)}</div>
+          <div class="tl-content">
+            <div class="tl-action">${label}${countBadge}${itemNote}</div>
+            <div class="tl-time">${when}</div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  function describeEntry(e, username) {
+    switch (e.type) {
+      case "treasury":
+        return { dotClass: "treasury", label: "Deposited to Treasury" };
+      case "stash":
+        if (e.operation === "withdraw")
+          return { dotClass: "stash-out", label: "Withdrew from Guild Stash" };
+        return { dotClass: "stash-in", label: "Deposited to Guild Stash" };
+      case "upgrade":
+        return { dotClass: "upgrade", label: "Queued guild upgrade" };
+      case "mission":
+        return { dotClass: "mission", label: "Started guild mission" };
+      case "invited":
+        return { dotClass: "invited", label: `Invited ${escHtml(e.user)}` };
+      case "joined":
+        return { dotClass: "invited", label: "Joined the guild" };
+      case "influence":
+        return { dotClass: "upgrade", label: "Daily login bonus" };
+      default:
+        return { dotClass: "upgrade", label: e.type };
+    }
+  }
+
+  function dotIcon(cls) {
+    return { treasury: "◈", "stash-in": "↓", "stash-out": "↑", upgrade: "◆", mission: "⚔", invited: "✦", joined: "→" }[cls] ?? "·";
+  }
+
+  function closeModal() {
+    overlay.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  document.getElementById("modal-close").addEventListener("click", closeModal);
+  overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+  // ── Tab switching ──
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  // ── Helpers ──
+  function escHtml(s) {
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function fmtGold(v) {
+    return (v >= 0 ? "" : "−") + Math.abs(v).toFixed(2) + "g";
+  }
+
+  function fmtDate(iso) {
+    return iso
+      ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+      : "—";
+  }
+
+  // ── Data load ──
+  async function load() {
+    let data;
+    try {
+      const res = await fetch("data/leaderboard.json");
+      if (!res.ok) throw new Error(res.statusText);
+      data = await res.json();
+    } catch (e) {
+      const msg = `<div class="empty">Could not load leaderboard data.<br><small>${e.message}</small></div>`;
+      document.getElementById("board-monetary").innerHTML = msg;
+      document.getElementById("board-activity").innerHTML = msg;
+      return;
+    }
+
+    // Meta
+    document.getElementById("updated-at").textContent = data.updated_at
+      ? new Date(data.updated_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+      : "unknown";
+    const period = data.retention_days ? `Last ${data.retention_days} days` : "All time";
+    const limit  = data.leaderboard_limit ? `top ${data.leaderboard_limit}` : "all";
+    document.getElementById("meta-period").innerHTML =
+      `${period} &mdash; <strong>${data.total_entries ?? "—"}</strong> entries &mdash; showing ${limit}`;
+
+    // Activity scoring legend
+    const ACTIVITY_LABELS = {
+      upgrade_queued:  "Upgrade queued",
+      mission_started: "Mission started",
+      invited:         "Member invited",
+      invite_accepted: "Invite accepted",
+      daily_login:     "Daily login (per participation)",
+    };
+    const legendGrid = document.getElementById("activity-legend-grid");
+    for (const [key, pts] of Object.entries(data.activity_scoring ?? {})) {
+      legendGrid.insertAdjacentHTML("beforeend", `
+        <div class="legend-item">
+          <span>${ACTIVITY_LABELS[key] ?? key}</span>
+          <span>${pts > 0 ? "+" : ""}${pts} pts</span>
+        </div>
+      `);
+    }
+
+    // Monetary board
+    const monetary = data.monetary_leaderboard ?? [];
+    const mBoard = document.getElementById("board-monetary");
+    if (!monetary.length) {
+      mBoard.innerHTML = `<div class="empty">No monetary contributions recorded yet.</div>`;
+    } else {
+      mBoard.innerHTML = monetary.map((m, i) => `
+        <div class="row monetary" data-user="${escHtml(m.user)}" style="animation-delay: ${i * 40}ms">
+          <span class="rank rank-${m.rank}">${m.rank}</span>
+          <span class="user">
+            ${escHtml(m.user)}
+            <small>Last active ${fmtDate(m.last_active)}</small>
+          </span>
+          <span class="stat">${fmtGold(m.treasury_value ?? 0)}</span>
+          <span class="stat">${fmtGold(m.stash_value_deposited ?? 0)}</span>
+          <span class="stat">${fmtGold(m.stash_value_withdrawn ?? 0)}</span>
+          <span class="score">${fmtGold(m.monetary_score ?? 0)}</span>
+        </div>`).join("");
+      mBoard.querySelectorAll(".row").forEach(r =>
+        r.addEventListener("click", () => openModal(r.dataset.user)));
+    }
+
+    // Activity board
+    const activity = data.activity_leaderboard ?? [];
+    const aBoard = document.getElementById("board-activity");
+    if (!activity.length) {
+      aBoard.innerHTML = `<div class="empty">No activity contributions recorded yet.</div>`;
+    } else {
+      aBoard.innerHTML = activity.map((m, i) => `
+        <div class="row activity" data-user="${escHtml(m.user)}" style="animation-delay: ${i * 40}ms">
+          <span class="rank rank-${m.rank}">${m.rank}</span>
+          <span class="user">
+            ${escHtml(m.user)}
+            <small>Last active ${fmtDate(m.last_active)}</small>
+          </span>
+          <span class="stat">${m.upgrades_queued ?? 0}</span>
+          <span class="stat">${m.missions_started ?? 0}</span>
+          <span class="stat">${m.invites_sent ?? 0}</span>
+          <span class="stat">${m.invites_accepted ?? 0}</span>
+          <span class="stat">${m.daily_login_participations ?? 0}</span>
+          <span class="score">${m.activity_score ?? 0} pts</span>
+        </div>`).join("");
+      aBoard.querySelectorAll(".row").forEach(r =>
+        r.addEventListener("click", () => openModal(r.dataset.user)));
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>

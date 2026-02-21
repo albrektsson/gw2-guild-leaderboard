@@ -1,0 +1,54 @@
+name: Update GW2 Leaderboard
+
+on:
+  workflow_dispatch:   # Manual trigger only (add cron later)
+
+permissions:
+  contents: write      # commit data files back to repo
+  pages: write         # deploy to GitHub Pages
+  id-token: write      # OIDC token required by deploy-pages action
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Fetch new log entries
+        env:
+          GW2_GUILD_ID: ${{ secrets.GW2_GUILD_ID }}
+          GW2_API_KEY: ${{ secrets.GW2_API_KEY }}
+        run: python scripts/fetch_log.py
+
+      - name: Compute leaderboard scores
+        run: python scripts/compute_scores.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/guild_log.json data/leaderboard.json data/item_names.json data/item_prices.json data/guild_members.json
+          git diff --cached --quiet || git commit -m "chore: update leaderboard $(date -u '+%Y-%m-%d')"
+          git push
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .   # serve entire repo root (index.html + data/)
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
