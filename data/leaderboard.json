@@ -1,0 +1,37 @@
+{
+  "updated_at": "2026-02-21T13:39:36.643350+00:00",
+  "total_entries": 294,
+  "retention_days": null,
+  "leaderboard_limit": 20,
+  "monetary_leaderboard": [
+    {
+      "rank": 1,
+      "user": "SpiroTris.3748",
+      "monetary_score": -70.24,
+      "treasury_value": 0.0,
+      "stash_value_deposited": 317.97,
+      "stash_value_withdrawn": 388.21,
+      "last_active": "2025-10-26T11:06:15.000Z"
+    }
+  ],
+  "activity_leaderboard": [
+    {
+      "rank": 1,
+      "user": "SpiroTris.3748",
+      "activity_score": 55,
+      "upgrades_queued": 3,
+      "missions_started": 0,
+      "invites_sent": 1,
+      "invites_accepted": 1,
+      "daily_login_participations": 0,
+      "last_active": "2015-10-04T17:01:21.000Z"
+    }
+  ],
+  "activity_scoring": {
+    "upgrade_queued": 15,
+    "mission_started": 5,
+    "invited": 5,
+    "invite_accepted": 5,
+    "daily_login": 1
+  }
+}
